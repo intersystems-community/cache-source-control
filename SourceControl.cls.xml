@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25">
+<Class name="Util.SourceControl">
+<Description>
+Simples source control </Description>
+<Super>%Studio.SourceControl.File</Super>
+<TimeCreated>62880,73521.279679</TimeCreated>
+
+<Parameter name="Source">
+<Description>
+^Source = tempdir path
+^Source(ext,"*") -- subfolder for item type</Description>
+<Default>^Source</Default>
+</Parameter>
+
+<Parameter name="ExpMode">
+<Description>
+1 - export in classname.cls.xml (compatible with cache-tort-git), 
+0 - export in classname.xml   </Description>
+<Default>0</Default>
+</Parameter>
+
+<Parameter name="Folder">
+<Default>C:/source/</Default>
+</Parameter>
+
+<Method name="SetUp">
+<Description>
+Настроить контроль версий и выгрузить все классы в файлы</Description>
+<ClassMethod>1</ClassMethod>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	kill @..#Source
+	set @..#Source=..#Folder_$zconvert($znspace,"l")_"/"
+	set @..#Source@("CLS","*")="cls/"
+	set @..#Source@("DFI","*")="dfi/"
+	
+	set SourceControl=..%New("")
+	set sc=$$$OK
+	
+	&sql(declare SU1 cursor for
+		select ID into :class 
+		from %Dictionary.ClassDefinition where (NOT (ID %STARTSWITH '%')) AND NOT (ID %STARTSWITH 'Util.SourceControl') AND NOT (ID %STARTSWITH 'Ens') AND NOT (ID %STARTSWITH 'CSPX') AND NOT (ID %STARTSWITH 'INFORMATION.SCHEMA') )
+	&sql(open SU1)
+	for {
+		&sql(fetch SU1)
+		quit:SQLCODE
+		set sc=SourceControl.OnAfterSave(class_".CLS")
+		quit:'sc
+	}
+	
+		&sql(declare SU2 cursor for
+		select documentname into :name 
+		from %DeepSee_UserLibrary.FolderItem)
+	&sql(open SU2)
+	for {
+		&sql(fetch SU2)
+		quit:SQLCODE
+		set sc=SourceControl.OnAfterSave(name)
+		quit:'sc
+	}
+
+	
+	quit sc
+]]></Implementation>
+</Method>
+
+<Method name="OnAfterSave">
+<FormalSpec>InternalName:%String,Object:%RegisteredObject</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	Set filename=..ExternalName(InternalName)
+	#; File not mapped so nothing to do
+	If filename="" Quit $$$OK
+	Set name=$Piece(InternalName,".",1,$Length(InternalName,".")-1)
+	#; CSP files are already files so not additional work needed
+	If name["/" Quit $$$OK
+	Set ext=$ZConvert($Piece(InternalName,".",$Length(InternalName,".")),"U")
+	#; Do not export the default projects
+	If ext="PRJ",$zconvert($extract(name,1,$length("default_")),"l")="default_" Quit $$$OK
+	#; By convention items starting with Z,z,%z,%Z are not exported
+	If (ext="PRJ")||($extract($translate(name,"Z%","z"))="z") Quit $$$OK
+	#; If time already matches nothing to do
+	If ##class(%RoutineMgr).TS(InternalName)=$get(@..#Source@(0,"ItemTimeStamp",InternalName)) Quit $$$OK
+
+	If ##class(%File).Exists(filename),##class(%File).ReadOnly(filename) Write !,"File ",filename," is read only, not exporting" Quit $$$OK
+	Do ##class(%File).CreateDirectoryChain(##class(%File).GetDirectory(filename))
+	Set sc=$$Export^%occXMLExport(filename,"-d /diffexport",InternalName)
+	If $$$ISOK(sc) {
+		Write !,"Exported '",InternalName,"' to file '",filename,"'"
+		Set @..#Source@(0,"FileTimeStamp",InternalName)=$zu(140,2,filename,1)
+		Set @..#Source@(0,"ItemTimeStamp",InternalName)=##class(%RoutineMgr).TS(InternalName)
+	} Else {
+		Do DecomposeStatus^%apiOBJ(sc,,"d")
+		Quit sc
+	}
+	Quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="ExtName">
+<Description>
+Return filename of this item</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>InternalName:%String</FormalSpec>
+<Private>1</Private>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[
+	/// if file is dfi, make folder-name.type.dfi to folder.name-type.dfi
+	if $zconvert($piece(InternalName,".",*),"U")="DFI" {
+		s InternalName=$p(InternalName,"-")_"."_$p($p(InternalName,"-",2),".",1)_"-"_$p(InternalName,".",2)_".DFI"
+		}
+	
+	Set name=..Name(InternalName)
+	// if cache-tort-git mode then introduce type in the file name
+	if ..#ExpMode set $p(name,".",*)=($zconvert($piece(InternalName,".",*),"l")_"."_$p(name,".",*))
+	Quit $select(name="":"",1:^Sources_$translate(name,"\","/"))
+]]></Implementation>
+</Method>
+</Class>
+</Export>
