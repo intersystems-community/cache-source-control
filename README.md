@@ -4,7 +4,7 @@ The simplest source control for Caché Studio
 Setup.
 Import SourceControl.cls.xml in target namespace.
 Open Management Portal and set in Configuration/Additional Settings/Source Control/ Util.SourceControl as source control class for the namespace.
-Screenshot: https://www.dropbox.com/s/016ld9l7rl9f1r7/%D0%A1%D0%BA%D1%80%D0%B8%D0%BD%D1%88%D0%BE%D1%82%202015-06-14%2000.26.50.png?dl=0
+[Screenshot](https://www.dropbox.com/s/016ld9l7rl9f1r7/%D0%A1%D0%BA%D1%80%D0%B8%D0%BD%D1%88%D0%BE%D1%82%202015-06-14%2000.26.50.png?dl=0)
 
 Open Util.SourceControl in Studio and set the defaults: temp directory, temp global.
 
