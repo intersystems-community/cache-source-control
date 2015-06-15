@@ -6,13 +6,6 @@ Simples source control </Description>
 <Super>%Studio.SourceControl.File</Super>
 <TimeCreated>62880,73521.279679</TimeCreated>
 
-<Parameter name="Source">
-<Description>
-^Source = tempdir path
-^Source(ext,"*") -- subfolder for item type</Description>
-<Default>^Source</Default>
-</Parameter>
-
 <Parameter name="ExpMode">
 <Description>
 1 - export in classname.cls.xml (compatible with cache-tort-git), 
@@ -26,14 +19,17 @@ Simples source control </Description>
 
 <Method name="SetUp">
 <Description>
-Настроить контроль версий и выгрузить все классы в файлы</Description>
+setup control version for namespace and export all classes </Description>
 <ClassMethod>1</ClassMethod>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-	kill @..#Source
-	set @..#Source=..#Folder_$zconvert($znspace,"l")_"/"
-	set @..#Source@("CLS","*")="cls/"
-	set @..#Source@("DFI","*")="dfi/"
+	/// ^Sources = tempdir path
+/// ^Sources(ext,"*") -- subfolder for item type
+
+	kill ^Sources
+	set ^Sources=..#Folder_$zconvert($znspace,"l")_"/"
+	set ^Sources("CLS","*")="cls/"
+	set ^Sources("DFI","*")="dfi/"
 	
 	set SourceControl=..%New("")
 	set sc=$$$OK
@@ -81,15 +77,15 @@ Simples source control </Description>
 	#; By convention items starting with Z,z,%z,%Z are not exported
 	If (ext="PRJ")||($extract($translate(name,"Z%","z"))="z") Quit $$$OK
 	#; If time already matches nothing to do
-	If ##class(%RoutineMgr).TS(InternalName)=$get(@..#Source@(0,"ItemTimeStamp",InternalName)) Quit $$$OK
+	If ##class(%RoutineMgr).TS(InternalName)=$get(^Sources(0,"ItemTimeStamp",InternalName)) Quit $$$OK
 
 	If ##class(%File).Exists(filename),##class(%File).ReadOnly(filename) Write !,"File ",filename," is read only, not exporting" Quit $$$OK
 	Do ##class(%File).CreateDirectoryChain(##class(%File).GetDirectory(filename))
 	Set sc=$$Export^%occXMLExport(filename,"-d /diffexport",InternalName)
 	If $$$ISOK(sc) {
 		Write !,"Exported '",InternalName,"' to file '",filename,"'"
-		Set @..#Source@(0,"FileTimeStamp",InternalName)=$zu(140,2,filename,1)
-		Set @..#Source@(0,"ItemTimeStamp",InternalName)=##class(%RoutineMgr).TS(InternalName)
+		Set ^Sources(0,"FileTimeStamp",InternalName)=$zu(140,2,filename,1)
+		Set ^Sources(0,"ItemTimeStamp",InternalName)=##class(%RoutineMgr).TS(InternalName)
 	} Else {
 		Do DecomposeStatus^%apiOBJ(sc,,"d")
 		Quit sc
@@ -115,6 +111,33 @@ Return filename of this item</Description>
 	// if cache-tort-git mode then introduce type in the file name
 	if ..#ExpMode set $p(name,".",*)=($zconvert($piece(InternalName,".",*),"l")_"."_$p(name,".",*))
 	Quit $select(name="":"",1:^Sources_$translate(name,"\","/"))
+]]></Implementation>
+</Method>
+
+<Method name="OnBeforeLoad">
+<FormalSpec>InternalName:%String,display:%Boolean=1</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	Set filename=..ExternalName(InternalName)
+	#; File not mapped so nothing to do
+	If filename="" Quit $$$OK
+	#; CSP files are already files so not work needed
+	If InternalName["/" Quit $$$OK
+	#; If no file then skip the import
+	If '##class(%File).Exists(filename) Write:display !,"File ",filename," not found, skipping import" Quit $$$OK
+	#; If time already matches then no work to do
+	If ##class(%File).GetFileDateModified(filename,1)=$get(^Sources(0,"FileTimeStamp",InternalName)),##class(%RoutineMgr).TS(InternalName)=$get(^Sources(0,"ItemTimeStamp",InternalName)) Quit $$$OK
+	Set name=$Piece(InternalName,".",1,$Length(InternalName,".")-1)
+	Set ext=$ZConvert($Piece(InternalName,".",$Length(InternalName,".")),"U")
+	Set sc=$$Import^%occSAX(filename,"fv-d-l")
+	If $$$ISOK(sc) {
+		Write !,"Imported '",InternalName,"' from file '",filename,"'"
+		Set ^Sources(0,"FileTimeStamp",InternalName)=##class(%File).GetFileDateModified(filename,1)
+		Set ^Sources(0,"ItemTimeStamp",InternalName)=##class(%RoutineMgr).TS(InternalName)
+	} Else {
+		Do DecomposeStatus^%apiOBJ(sc,.errors,"d")
+	}
+	Quit sc
 ]]></Implementation>
 </Method>
 </Class>
