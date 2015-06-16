@@ -104,8 +104,10 @@ Return filename of this item</Description>
 <Implementation><![CDATA[
 	/// if file is dfi, make folder-name.type.dfi to folder.name-type.dfi
 	if $zconvert($piece(InternalName,".",*),"U")="DFI" {
-		s InternalName=$p(InternalName,"-")_"."_$p($p(InternalName,"-",2),".",1)_"-"_$p(InternalName,".",2)_".DFI"
-		}
+		/// if pivot name has folder convert folders - to dots
+		s folderAndName=$Tr($p(InternalName,"."),"-",".")
+		s InternalName=folderAndName_"-"_$p(InternalName,".",2)_".DFI"
+				}
 	
 	Set name=..Name(InternalName)
 	// if cache-tort-git mode then introduce type in the file name
