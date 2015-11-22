@@ -2,7 +2,12 @@
 <Export generator="Cache" version="25">
 <Class name="Util.SourceControl">
 <Description>
-Simples source control </Description>
+Simples source control 
+Supports exporting code to external file while after compiling  
+Adjust Folder to specify folder to export
+class packages are subfolders
+classes are exported to ../cls
+dfis are exported to ../dfi </Description>
 <Super>%Studio.SourceControl.File</Super>
 <TimeCreated>62880,73521.279679</TimeCreated>
 
@@ -10,7 +15,7 @@ Simples source control </Description>
 <Description>
 1 - export in classname.cls.xml (compatible with cache-tort-git), 
 0 - export in classname.xml   </Description>
-<Default>0</Default>
+<Default>1</Default>
 </Parameter>
 
 <Parameter name="Folder">
@@ -19,7 +24,9 @@ Simples source control </Description>
 
 <Method name="SetUp">
 <Description>
-setup control version for namespace and export all classes </Description>
+setup control version for namespace and export all classes
+omits generated classes and classes with masks: %.*, csp.*, Ens.*, CSPX.*, INFORMATION.SCHEMA.*
+exports dfi for pivots and dashboards  </Description>
 <ClassMethod>1</ClassMethod>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
@@ -30,19 +37,24 @@ setup control version for namespace and export all classes </Description>
 	set ^Sources=..#Folder_$zconvert($znspace,"l")_"/"
 	set ^Sources("CLS","*")="cls/"
 	set ^Sources("DFI","*")="dfi/"
+	set ^Sources("MAC","*")="mac/"
+
 	
 	set SourceControl=..%New("")
 	set sc=$$$OK
-	
 	&sql(declare SU1 cursor for
 		select ID into :class 
-		from %Dictionary.ClassDefinition where (NOT (ID %STARTSWITH '%')) AND NOT (ID %STARTSWITH 'Util.SourceControl') AND NOT (ID %STARTSWITH 'Ens') AND NOT (ID %STARTSWITH 'CSPX') AND NOT (ID %STARTSWITH 'INFORMATION.SCHEMA') )
+		from %Dictionary.ClassDefinition where (NOT (ID %STARTSWITH '%')) AND NOT (ID %STARTSWITH 'Util.SourceControl') AND NOT (ID %STARTSWITH 'Ens') AND NOT (ID %STARTSWITH 'CSPX') AND NOT (ID %STARTSWITH 'csp') AND NOT (ID %STARTSWITH 'INFORMATION.SCHEMA') )
 	&sql(open SU1)
 	for {
 		&sql(fetch SU1)
 		quit:SQLCODE
+		// Omit generated classes by Generated in description
+		// todo  if there is another way to determine generated class, use it
+		s clid=##class(%Library.ClassDefinition).%OpenId(class)
+		if clid.Description["Generated" Continue
 		set sc=SourceControl.OnAfterSave(class_".CLS")
-		quit:'sc
+		if 'sc d $System.OBJ.DisplayError(sc)
 	}
 	
 		&sql(declare SU2 cursor for
@@ -53,7 +65,7 @@ setup control version for namespace and export all classes </Description>
 		&sql(fetch SU2)
 		quit:SQLCODE
 		set sc=SourceControl.OnAfterSave(name)
-		quit:'sc
+		if 'sc d $System.OBJ.DisplayError(sc)
 	}
 
 	
@@ -72,6 +84,8 @@ setup control version for namespace and export all classes </Description>
 	#; CSP files are already files so not additional work needed
 	If name["/" Quit $$$OK
 	Set ext=$ZConvert($Piece(InternalName,".",$Length(InternalName,".")),"U")
+	s ^AAA($I(^AAA))=InternalName_", name="_name_", ext="_ext_", filename="_filename
+	
 	#; Do not export the default projects
 	If ext="PRJ",$zconvert($extract(name,1,$length("default_")),"l")="default_" Quit $$$OK
 	#; By convention items starting with Z,z,%z,%Z are not exported
@@ -102,14 +116,23 @@ Return filename of this item</Description>
 <Private>1</Private>
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[
+	
+	//s ^AAA($I(^AAA))=InternalName
+	
 	/// if file is dfi, make folder-name.type.dfi to folder.name-type.dfi
 	if $zconvert($piece(InternalName,".",*),"U")="DFI" {
 		/// if pivot name has folder convert folders - to dots
-		s folderAndName=$Tr($p(InternalName,"."),"-",".")
+ 		s folderAndName=$Tr($p(InternalName,"."),"-",".")
 		s InternalName=folderAndName_"-"_$p(InternalName,".",2)_".DFI"
-				}
+		}
 	
-	Set name=..Name(InternalName)
+	Set name=..Name(InternalName) 
+	
+	if name="",$zconvert($piece(InternalName,".",*),"U")="MAC" {
+		s name="mac/"_$p(InternalName,".")_".xml"
+		}
+	
+	s ^AAA($I(^AAA))=InternalName_", name="_name
 	// if cache-tort-git mode then introduce type in the file name
 	if ..#ExpMode set $p(name,".",*)=($zconvert($piece(InternalName,".",*),"l")_"."_$p(name,".",*))
 	Quit $select(name="":"",1:^Sources_$translate(name,"\","/"))
@@ -127,6 +150,8 @@ Return filename of this item</Description>
 	If InternalName["/" Quit $$$OK
 	#; If no file then skip the import
 	If '##class(%File).Exists(filename) Write:display !,"File ",filename," not found, skipping import" Quit $$$OK
+	#; don't import dfis because they have no export tool from Portal
+	if filename [ ".dfi" quit $$$OK
 	#; If time already matches then no work to do
 	If ##class(%File).GetFileDateModified(filename,1)=$get(^Sources(0,"FileTimeStamp",InternalName)),##class(%RoutineMgr).TS(InternalName)=$get(^Sources(0,"ItemTimeStamp",InternalName)) Quit $$$OK
 	Set name=$Piece(InternalName,".",1,$Length(InternalName,".")-1)
