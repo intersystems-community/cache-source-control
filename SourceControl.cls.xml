@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-07-11 19:56:12">
 <Class name="Util.SourceControl">
 <Description>
 Simples source control 
@@ -9,13 +9,15 @@ class packages are subfolders
 classes are exported to ../cls
 dfis are exported to ../dfi </Description>
 <Super>%Studio.SourceControl.File</Super>
+<TimeChanged>64110,71653.366791</TimeChanged>
 <TimeCreated>62880,73521.279679</TimeCreated>
 
 <Parameter name="ExpMode">
 <Description>
+2 - export in classname.cls (udl format)
 1 - export in classname.cls.xml (compatible with cache-tort-git), 
 0 - export in classname.xml   </Description>
-<Default>1</Default>
+<Default>2</Default>
 </Parameter>
 
 <Parameter name="Folder">
@@ -95,7 +97,14 @@ exports dfi for pivots and dashboards  </Description>
 
 	If ##class(%File).Exists(filename),##class(%File).ReadOnly(filename) Write !,"File ",filename," is read only, not exporting" Quit $$$OK
 	Do ##class(%File).CreateDirectoryChain(##class(%File).GetDirectory(filename))
-	Set sc=$$Export^%occXMLExport(filename,"-d /diffexport",InternalName)
+	Set sc = 0
+	#; If udl format
+	if ..#ExpMode = 2 {
+		set sc = ..ExportUDL(filename, InternalName)
+	}
+	else {
+		Set sc=$$Export^%occXMLExport(filename,"-d /diffexport",InternalName)
+	}
 	If $$$ISOK(sc) {
 		Write !,"Exported '",InternalName,"' to file '",filename,"'"
 		Set ^Sources(0,"FileTimeStamp",InternalName)=$zu(140,2,filename,1)
@@ -105,6 +114,51 @@ exports dfi for pivots and dashboards  </Description>
 		Quit sc
 	}
 	Quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="ExportUDL">
+<Description>
+exports fileName to fileLocation file using UDL format
+works only for .cls files</Description>
+<FormalSpec>fileLocation:%String,fileName:%String</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	if '$data(fileLocation) || '$data(fileName) {
+		return $system.Status.Error(0, "not all fields are passed to the method")
+	}
+	
+	// init
+	set clsXmlFormat = "cls.xml"
+	set cls = "cls"
+	set clsFormat = ".CLS"
+	
+	// transform classname.cls.xml -> classname.cls
+	set fileLocation = $extract(fileLocation, 1, $find(fileLocation, clsXmlFormat) - ($length(clsXmlFormat) + 1)) _ cls
+	set namespace = $system.SYS.NameSpace()
+	
+	// transform classname.CLS -> classname
+	set className = $extract(fileName, 1, $find(fileName, clsFormat) - ($length(clsFormat) + 1))
+	
+	// get class content
+	set getTextStatus = ##class(%Compiler.UDL.TextServices).GetTextAsString(namespace, className, .classContent)
+	
+	if 'getTextStatus {
+		return $system.Status.Error(0, "couldn't get " _ className _  " class content")
+	}
+	
+	// write class content to file
+	set fileStream = ##class(%FileCharacterStream).%New()
+	set fileStream.Filename = fileLocation
+	set writeFileStatus = fileStream.Write(classContent)
+	do fileStream.SaveStream()
+	
+	if 'writeFileStatus {
+		return $system.Status.Error(0, "couldn't write the " _ className _ " class content to the file")
+	}
+	else {
+		return $$$OK
+	}
 ]]></Implementation>
 </Method>
 
