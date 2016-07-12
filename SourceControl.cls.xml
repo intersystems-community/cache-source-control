@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-07-11 20:50:26">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-07-13 00:22:03">
 <Class name="Util.SourceControl">
 <Description>
 Simples source control 
@@ -9,7 +9,7 @@ class packages are subfolders
 classes are exported to ../cls
 dfis are exported to ../dfi </Description>
 <Super>%Studio.SourceControl.File</Super>
-<TimeChanged>64110,74670.211427</TimeChanged>
+<TimeChanged>64112,1248.68923</TimeChanged>
 <TimeCreated>62880,73521.279679</TimeCreated>
 
 <Parameter name="ExpMode">
@@ -124,46 +124,37 @@ works only for .cls files</Description>
 <FormalSpec>fileLocation:%String,fileName:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
+	#include %occErrors
 	if '$data(fileLocation) || '$data(fileName) {
-		//52 - invalid arguments
-		return $system.Status.Error(52, "not all fields are passed to the method")
+		return $$$ERROR($$$InvalidArgument, "not all fields are passed to the method")
 	}
 	
 	// init
 	set clsXmlFormat = "cls.xml"
 	set cls = "cls"
 	set clsFormat = ".CLS"
+	set status = ""
 	
 	// transform classname.cls.xml -> classname.cls
 	set fileLocation = $extract(fileLocation, 1, $find(fileLocation, clsXmlFormat) - ($length(clsXmlFormat) + 1)) _ cls
-	set namespace = $system.SYS.NameSpace()
+	set namespace = $namespace
 	
 	// transform classname.CLS -> classname
 	set className = $extract(fileName, 1, $find(fileName, clsFormat) - ($length(clsFormat) + 1))
 	
 	// get class content
-	set getTextStatus = ##class(%Compiler.UDL.TextServices).GetTextAsString(namespace, className, .classContent)
-	
-	if $$$ISERR(getTextStatus) {
-		return getTextStatus
-	}
+	set status = ##class(%Compiler.UDL.TextServices).GetTextAsString(namespace, className, .classContent)
+	return:$$$ISERR(status) status
 	
 	// write class content to file
 	set fileStream = ##class(%FileCharacterStream).%New()
 	set fileStream.Filename = fileLocation
-	set writeFileStatus = fileStream.Write(classContent)
 	
-	if $$$ISERR(writeFileStatus) {
-		return writeFileStatus
-	}
+	set status = fileStream.Write(classContent)
+	return:$$$ISERR(status) status
 	
-	set saveFileStatus = fileStream.SaveStream()
-	
-	if $$$ISERR(saveFileStatus) {
-		return saveFileStatus
-	}
-	
-	return $$$OK
+	set status = fileStream.SaveStream()
+	return status
 ]]></Implementation>
 </Method>
 
