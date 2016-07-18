@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-07-18 17:26:05">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-07-18 21:40:40">
 <Class name="Util.SourceControl">
 <Super>%Studio.SourceControl.File</Super>
-<TimeChanged>64117,42390.584918</TimeChanged>
+<TimeChanged>64117,77887.28835</TimeChanged>
 <TimeCreated>64113,38662.910035</TimeCreated>
 
 <Parameter name="ExpMode">
@@ -58,15 +58,14 @@ omits generated classes and classes with masks: %.*, csp.*, Ens.*, CSPX.*, INFOR
 		 	AND NOT (ID %STARTSWITH 'Ens') 
 		 	AND NOT (ID %STARTSWITH 'CSPX') 
 		 	AND NOT (ID %STARTSWITH 'csp') 
-		 	AND NOT (ID %STARTSWITH 'INFORMATION.SCHEMA') )
+		 	AND NOT (ID %STARTSWITH 'INFORMATION.SCHEMA')
+		 	AND (GeneratedBy IS NULL) )
 	&sql(OPEN classCursor)
 	for {
 		&sql(FETCH classCursor INTO :className)
 		quit:(SQLCODE '= 0)
 		 
-		// Omit generated classes by Generated in description
 		s clid = ##class(%Library.ClassDefinition).%OpenId(className)
-		if clid.Description["Generated" Continue
 		set sc = sourceControl.OnAfterSave(className _ ".CLS")
 		if $$$ISERR(sc) {
 			do $system.OBJ.DisplayError(sc)
@@ -314,20 +313,15 @@ Exports .mac, .int, .dfi files to fileLocation with the name of fileName</Descri
 <FormalSpec>fileLocation:%String,fileName:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-	set fileContent = ""
 	set rtn = ##class(%RoutineMgr).%OpenId(fileName)
- 	while 'rtn.Code.AtEnd {
- 		set fileContent = fileContent _ $CHAR(13) _ rtn.Code.ReadLine()
- 	}
  	
  	// write content to file
 	set fileStream = ##class(%FileCharacterStream).%New()
 	set fileStream.Filename = fileLocation
 	
-	set status = fileStream.Write(fileContent)
+	set status = fileStream.CopyFromAndSave(rtn.Code)
 	return:$$$ISERR(status) status
 	
-	set status = fileStream.SaveStream()
 	return status
 ]]></Implementation>
 </Method>
