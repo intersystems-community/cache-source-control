@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-07-19 14:42:41">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-07-19 15:25:50">
 <Class name="Util.SourceControl">
 <Super>%Studio.SourceControl.File</Super>
-<TimeChanged>64118,52950.300222</TimeChanged>
+<TimeChanged>64118,55287.411561</TimeChanged>
 <TimeCreated>64113,38662.910035</TimeCreated>
 
 <Parameter name="ExpMode">
@@ -41,7 +41,7 @@ omits generated classes and classes with masks: %.*, csp.*, Ens.*, CSPX.*, INFOR
 <Implementation><![CDATA[
 	// init variables and globals
 	kill ^Sources
-	set ^Sources = ..#SourceFolder _ $zconvert($znspace, "l") _ "/"
+	set ^Sources = ..#SourceFolder _ "src" _ "/"
 	set ^Sources("CLS","*") = "cls/"
 	set ^Sources("DFI","*") = "dfi/"
 	set ^Sources("MAC","*") = "mac/"

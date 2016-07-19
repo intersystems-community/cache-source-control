@@ -25,7 +25,7 @@ Parameters to adjust:<br>
 File hierarchy: 
 1) **XML**:
 ```
-/namespace
+/src
     /cls
         /PackageName
             Classname.xml
@@ -39,7 +39,7 @@ File hierarchy:
 
 2) **New XML files(compatible with cache-tort-git)**:
 ```
-/namespace
+/src
     /cls
         /PackageName
             Classname.cls.xml
@@ -53,7 +53,7 @@ File hierarchy:
 
 3) **UDL**:
 ```
-/namespace
+/src
     /cls
         /PackageName
             Classname.cls
