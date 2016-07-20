@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-07-19 15:25:50">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-07-20 11:03:22">
 <Class name="Util.SourceControl">
 <Super>%Studio.SourceControl.File</Super>
-<TimeChanged>64118,55287.411561</TimeChanged>
+<TimeChanged>64119,39489.258803</TimeChanged>
 <TimeCreated>64113,38662.910035</TimeCreated>
 
 <Parameter name="ExpMode">
@@ -10,7 +10,7 @@
 2 - export in classname.cls (udl format)
 1 - export in classname.cls.xml (compatible with cache-tort-git), 
 0 - export in classname.xml   </Description>
-<Default>0</Default>
+<Default>2</Default>
 </Parameter>
 
 <Parameter name="ResourceName">
@@ -34,7 +34,7 @@ specifies the frequency of checking for new files in the SourceFolder</Descripti
 
 <Method name="Init">
 <Description>
-setup control version for namespace and export all .cls, .mac, .int, .dfi files
+setup control version for namespace and export all .cls, .mac, .int, .dfi, .inc files
 omits generated classes and classes with masks: %.*, csp.*, Ens.*, CSPX.*, INFORMATION.SCHEMA.*</Description>
 <ClassMethod>1</ClassMethod>
 <ReturnType>%Status</ReturnType>
@@ -46,6 +46,7 @@ omits generated classes and classes with masks: %.*, csp.*, Ens.*, CSPX.*, INFOR
 	set ^Sources("DFI","*") = "dfi/"
 	set ^Sources("MAC","*") = "mac/"
 	set ^Sources("INT","*") = "int/"
+	set ^Sources("INC", "*") = "inc/"
 	set sourceControl = ..%New("")
 	set sc = $$$OK
 
@@ -94,7 +95,10 @@ omits generated classes and classes with masks: %.*, csp.*, Ens.*, CSPX.*, INFOR
 	 	
 	 	while rs.%Next() {
 	 		set fileName = rs.%GetData(1)
-	 		if ($find(fileName, ".mac")) || ($find(fileName, ".int") || ($find(fileName, ".DFI"))) {
+	 		if ($find(fileName, ".mac")) 
+	 			|| ($find(fileName, ".int") 
+	 			|| ($find(fileName, ".DFI")) 
+	 			|| ($find(fileName, ".inc"))) {
 	 			set sc = sourceControl.OnAfterSave(fileName)
 	 			if $$$ISERR(sc) {
 	 				do $system.Status.DisplayError(sc)
@@ -268,7 +272,7 @@ exports fileName to fileLocation file using UDL format</Description>
 	if ext = "cls" {
 		return ..ExportUDLClass(fileLocation, fileName)
 	} 
-	elseif (ext = "mac") || (ext = "int") || (ext = "dfi") {
+	elseif (ext = "mac") || (ext = "int") || (ext = "dfi") || (ext = "inc") {
 		return ..ExportUDLOther(fileLocation, fileName)
 	} 
 	return $$$OK
@@ -307,7 +311,7 @@ Exports a class to fileLocation with the name of fileName </Description>
 
 <Method name="ExportUDLOther">
 <Description>
-Exports .mac, .int, .dfi files to fileLocation with the name of fileName</Description>
+Exports .mac, .int, .dfi, .inc files to fileLocation with the name of fileName</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>fileLocation:%String,fileName:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>

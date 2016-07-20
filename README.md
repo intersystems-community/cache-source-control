@@ -35,6 +35,8 @@ File hierarchy:
         SomeFile.xml
     /dfi
         SomeAnotherFile.xml
+    /inc
+        def.xml
 ```
 
 2) **New XML files(compatible with cache-tort-git)**:
@@ -49,6 +51,8 @@ File hierarchy:
         SomeFile.int.xml
     /dfi 
         SomeAnotherFile.dfi.xml
+    /inc
+        def.inc.xml
 ```
 
 3) **UDL**:
@@ -63,6 +67,8 @@ File hierarchy:
         SomeFile.int
     /dfi 
         SomeAnotherFile.dfi
+    /inc
+        def.inc
 ```
 
 During your coding process it will export class from studio after every successful compilation.<br>
