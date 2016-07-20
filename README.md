@@ -31,7 +31,7 @@ File hierarchy:
             Classname.xml
     /mac
         Routine.xml
-    /inte
+    /int
         SomeFile.xml
     /dfi
         SomeAnotherFile.xml
