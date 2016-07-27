@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-32) 2015.1 (Build 429U)" ts="2016-07-27 08:00:58">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-07-27 11:03:02">
 <Class name="Util.SourceControl">
 <Super>%Studio.SourceControl.File</Super>
-<TimeChanged>64126,28824.79053</TimeChanged>
+<TimeChanged>64126,39006.084955</TimeChanged>
 <TimeCreated>64113,38662.910035</TimeCreated>
 
 <Parameter name="ExpMode">
@@ -15,7 +15,7 @@
 
 <Parameter name="ResourceName">
 <Description>
-resource name is used to waiting for system event
+resource name is used to wait for system event
 do not change</Description>
 <Default>searchResource</Default>
 </Parameter>
@@ -52,6 +52,7 @@ reponame - name of the repository.</Description>
 	set ^Sources("INC", "*") = "inc/"
 	set sourceControl = ..%New("")
 	set sc = $$$OK
+	set currentLocation = ##class(%SYS.Namespace).GetPackageDest($namespace, "")
 
 	// fetch all classes 
 	&sql(DECLARE classCursor cursor for
@@ -63,12 +64,19 @@ reponame - name of the repository.</Description>
 		 	AND NOT (ID %STARTSWITH 'CSPX') 
 		 	AND NOT (ID %STARTSWITH 'csp') 
 		 	AND NOT (ID %STARTSWITH 'INFORMATION.SCHEMA')
-		 	AND (GeneratedBy IS NULL) )
+		 	AND (GeneratedBy IS NULL)
+		 	AND NOT (ID LIKE '%.xml') )
 	&sql(OPEN classCursor)
 	for {
 		&sql(FETCH classCursor INTO :className)
 		quit:(SQLCODE '= 0)
-		 
+		
+		// check for mapped files
+		set classLocation = ##class(%SYS.Namespace).GetPackageDest($namespace, className)
+		if classLocation '= currentLocation {
+			continue
+		}
+		
 		set sc = sourceControl.OnAfterSave(className _ ".CLS")
 		if $$$ISERR(sc) {
 			do $system.OBJ.DisplayError(sc)
