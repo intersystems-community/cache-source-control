@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-07-27 11:03:02">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-08-05 15:18:11">
 <Class name="Util.SourceControl">
 <Super>%Studio.SourceControl.File</Super>
-<TimeChanged>64126,39006.084955</TimeChanged>
+<TimeChanged>64135,54944.867734</TimeChanged>
 <TimeCreated>64113,38662.910035</TimeCreated>
 
 <Parameter name="ExpMode">
@@ -32,27 +32,41 @@ specifies the frequency of checking for new files in the SourceFolder</Descripti
 <Default>2</Default>
 </Parameter>
 
+<Parameter name="CSPFolder">
+<Description>
+specifies where all csp, js, css, html, etc files are located
+usually, C:\InterSystems\Cache\CSP\{namespace}</Description>
+<Default>C:/InterSystems/Cache/CSP/sourcecontrol/</Default>
+</Parameter>
+
+<Parameter name="Namespace">
+<Description>
+specifies the namespace where file are exported from and imported into </Description>
+<Default>SourceControl</Default>
+</Parameter>
+
 <Method name="Init">
 <Description>
 setup control version for namespace and export all .cls, .mac, .int, .dfi files
 omits generated classes and classes with masks: %.*, csp.*, Ens.*, CSPX.*, INFORMATION.SCHEMA.*
 reponame - name of the repository.</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>reponame:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-	if $g(reponame)="" s reponame=$znspace
+	
 	// init variables and globals
 	kill ^Sources
-	set ^Sources = ..#SourceFolder_reponame_"/"_ "src" _ "/"
+	set ^Sources = ..#SourceFolder_..#Namespace_"/"_ "src" _ "/"
 	set ^Sources("CLS","*") = "cls/"
 	set ^Sources("DFI","*") = "dfi/"
 	set ^Sources("MAC","*") = "mac/"
 	set ^Sources("INT","*") = "int/"
 	set ^Sources("INC", "*") = "inc/"
+	set ^Sources("CSP", "*") = "csp/"
+	
 	set sourceControl = ..%New("")
 	set sc = $$$OK
-	set currentLocation = ##class(%SYS.Namespace).GetPackageDest($namespace, "")
+	set currentLocation = ##class(%SYS.Namespace).GetPackageDest(..#Namespace, "")
 
 	// fetch all classes 
 	&sql(DECLARE classCursor cursor for
@@ -72,7 +86,7 @@ reponame - name of the repository.</Description>
 		quit:(SQLCODE '= 0)
 		
 		// check for mapped files
-		set classLocation = ##class(%SYS.Namespace).GetPackageDest($namespace, className)
+		set classLocation = ##class(%SYS.Namespace).GetPackageDest(..#Namespace, className)
 		if classLocation '= currentLocation {
 			continue
 		}
@@ -117,6 +131,8 @@ reponame - name of the repository.</Description>
 	 		}
 	 	}
 	}
+	
+	do ..TraverseFileTree(..#CSPFolder, "ExportCSP")
 
  	
  	return $$$OK
@@ -244,7 +260,7 @@ This file should contain code in UDL format</Description>
 	set status = $$$OK
 	
 	if $find(fileLocation, ".cls") {
-		set status = ##class(%Compiler.UDL.TextServices).SetTextFromFile($namespace, InternalName, fileLocation)
+		set status = ##class(%Compiler.UDL.TextServices).SetTextFromFile(..#Namespace, InternalName, fileLocation)
 	} 
 	
 	else {
@@ -297,7 +313,7 @@ Exports a class to fileLocation with the name of fileName </Description>
 <FormalSpec>fileLocation:%String,fileName:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-	set namespace = $namespace
+	set namespace = ..#Namespace
 	set clsformat = ".CLS"
 	set status = ""
 	
@@ -311,6 +327,8 @@ Exports a class to fileLocation with the name of fileName </Description>
 	// write class content to file
 	set fileStream = ##class(%FileCharacterStream).%New()
 	set fileStream.Filename = fileLocation
+	
+	set classContent = $zconvert(classContent, "O", "UTF8")
 	
 	set status = fileStream.Write(classContent)
 	return:$$$ISERR(status) status
@@ -332,6 +350,7 @@ Exports .mac, .int, .dfi files to fileLocation with the name of fileName</Descri
  	// write content to file
 	set fileStream = ##class(%FileCharacterStream).%New()
 	set fileStream.Filename = fileLocation
+	set fileStream.TranslateTable = "UTF8"
 	
 	set status = fileStream.CopyFromAndSave(rtn.Code)
 	return:$$$ISERR(status) status
@@ -432,7 +451,9 @@ Is executed on another process</Description>
 	for {
 		do $system.Event.Wait(..#ResourceName, ..#RefreshTime)
 		set dir = ^Sources
-		do ##class(Util.SourceControl).TraverseFileTree(dir)
+		do ..TraverseFileTree(dir, "SearchForNamespaceFiles")
+		do ..TraverseFileTree(..#CSPFolder, "ExportCSP")
+		do ..TraverseFileTree(..#SourceFolder_..#Namespace_"/csp/", "ImportCSP")
 	}
 ]]></Implementation>
 </Method>
@@ -454,7 +475,7 @@ Gets the name of a file at fileLocation</Description>
 <Description>
 Traverses the file tree starting at source control directory</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>dir:%String</FormalSpec>
+<FormalSpec>dir:%String,function:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 	set trs = ##class(%ResultSet).%New("%Library.File:FileSet")
@@ -463,23 +484,31 @@ Traverses the file tree starting at source control directory</Description>
 		set name = trs.Get("Name")
  		set type = trs.Get("Type")
  		if type = "D" {
- 			do ..TraverseFileTree(name)
+ 			do ..TraverseFileTree(name, function)
  		}
  		else {
-	 		set internalName = ..GetInternalName(name)
-	 		set internalNameUpper = internalName
-	 		set $piece(internalNameUpper, ".", *) = $zconvert($piece(internalNameUpper, ".", *), "U")
- 			if ('$data(^Sources(0, "FileTimeStamp", internalName))) 
- 				&& ('$data(^Sources(0, "FileTimeStamp", internalNameUpper))) {
-	 			write !, name
-				set st = ..CreateFile(internalName, name)
-				if $$$ISERR(st) {
-					do $system.Status.DisplayError(st)
-				}
-	 		}
+	 		do $classmethod("Util.SourceControl", function, name)
  		}
  	}
  	return $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="SearchForNamespaceFiles">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>name:%String</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	set internalName = ..GetInternalName(name)
+	set internalNameUpper = internalName
+	set $piece(internalNameUpper, ".", *) = $zconvert($piece(internalNameUpper, ".", *), "U")
+	if ('$data(^Sources(0, "FileTimeStamp", internalName))) 
+ 		&& ('$data(^Sources(0, "FileTimeStamp", internalNameUpper))) {
+		set st = ..CreateFile(internalName, name)
+		if $$$ISERR(st) {
+			do $system.Status.DisplayError(st)
+		}
+	 }
 ]]></Implementation>
 </Method>
 
@@ -566,6 +595,88 @@ Creates .mac, .int, .dfi file with the name of intrernalName which is stored at 
  	
  	set status = rtn.Compile()
  	return status
+]]></Implementation>
+</Method>
+
+<Method name="GetInternalNameForCSP">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>name:%String,mode:%String</FormalSpec>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[
+	if mode="e" {
+		return $extract(name, $find(name, ..#CSPFolder), *)
+	}
+	else {
+		return $extract(name, $find(name, ..#SourceFolder _ ..#Namespace _ "/src/csp/"), *)
+	}
+]]></Implementation>
+</Method>
+
+<Method name="ExportCSP">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>fileLocation:%String</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	set fileLocation = $translate(fileLocation, "\", "/")
+	set internalName = ..GetInternalNameForCSP(fileLocation, "e")
+	set newLocation = ..#SourceFolder _ ..#Namespace _ "/src/csp/" _ internalName
+	
+	
+	set sourceDate = ##class(%File).GetFileDateModified(fileLocation,1)
+	set exportDate = ##class(%File).GetFileDateModified(newLocation,1)
+	
+	if (sourceDate > 0) && (exportDate > 0) && ($zdt(exportDate) ]] $zdt(sourceDate)) {
+		return $$$OK
+	}
+	
+	
+	set ^Sources(0,"FileTimeStamp", internalName) = ##class(%File).GetFileDateModified(fileLocation, 1)
+	
+	
+	do ##class(%File).CreateDirectoryChain(##class(%File).GetDirectory(newLocation))
+	set sourceFile = ##class(%FileCharacterStream).%New()
+	set sourceFile.Filename = fileLocation
+	
+	set exportedFile = ##class(%FileCharacterStream).%New()
+	set exportedFile.Filename = newLocation
+	set exportedFile.TranslateTable = "UTF8"
+	
+	set status = exportedFile.CopyFromAndSave(sourceFile)
+	return status
+]]></Implementation>
+</Method>
+
+<Method name="ImportCSP">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>fileLocation:%String</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	set fileLocation = $translate(fileLocation, "\", "/")
+	set internalName = ..GetInternalNameForCSP(fileLocation, "i")
+	set newLocation = ..#CSPFolder _ internalName
+	
+	
+	set sourceDate = ##class(%File).GetFileDateModified(fileLocation,1)
+	set exportDate = ##class(%File).GetFileDateModified(newLocation,1)
+	
+	if (sourceDate > 0) && (exportDate > 0) && ($zdt(exportDate) ]] $zdt(sourceDate)) {
+		return $$$OK
+	}
+	
+	
+	set ^Sources(0,"FileTimeStamp", internalName) = ##class(%File).GetFileDateModified(fileLocation, 1)
+	
+	
+	do ##class(%File).CreateDirectoryChain(##class(%File).GetDirectory(newLocation))
+	set sourceFile = ##class(%FileCharacterStream).%New()
+	set sourceFile.Filename = fileLocation
+	
+	set exportedFile = ##class(%FileCharacterStream).%New()
+	set exportedFile.Filename = newLocation
+	set exportedFile.TranslateTable = "UTF8"
+	
+	set status = exportedFile.CopyFromAndSave(sourceFile)
+	return status
 ]]></Implementation>
 </Method>
 </Class>
