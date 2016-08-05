@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-08-05 15:18:11">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-08-05 16:57:10">
 <Class name="Util.SourceControl">
 <Super>%Studio.SourceControl.File</Super>
-<TimeChanged>64135,54944.867734</TimeChanged>
+<TimeChanged>64135,61000.726483</TimeChanged>
 <TimeCreated>64113,38662.910035</TimeCreated>
 
 <Parameter name="ExpMode">
@@ -133,6 +133,11 @@ reponame - name of the repository.</Description>
 	}
 	
 	do ..TraverseFileTree(..#CSPFolder, "ExportCSP")
+	
+	// start a job - execute each RefreshTime seconds
+	if '$system.Event.Defined(..#ResourceName) {
+		job ..SearchForNewFiles()
+	}
 
  	
  	return $$$OK
@@ -453,7 +458,7 @@ Is executed on another process</Description>
 		set dir = ^Sources
 		do ..TraverseFileTree(dir, "SearchForNamespaceFiles")
 		do ..TraverseFileTree(..#CSPFolder, "ExportCSP")
-		do ..TraverseFileTree(..#SourceFolder_..#Namespace_"/csp/", "ImportCSP")
+		do ..TraverseFileTree(..#SourceFolder_..#Namespace_"/src/csp/", "ImportCSP")
 	}
 ]]></Implementation>
 </Method>
@@ -478,6 +483,10 @@ Traverses the file tree starting at source control directory</Description>
 <FormalSpec>dir:%String,function:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
+	set dir = $translate(dir, "\", "/")
+	if '##class(%File).Exists(dir) {
+		return $$$OK
+	}
 	set trs = ##class(%ResultSet).%New("%Library.File:FileSet")
  	set tsc = trs.Execute(dir, "*")
 	while trs.Next() {
@@ -499,6 +508,9 @@ Traverses the file tree starting at source control directory</Description>
 <FormalSpec>name:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
+	if $find($translate(name, "\", "/"), "/csp/") {
+		return $$$OK
+	}
 	set internalName = ..GetInternalName(name)
 	set internalNameUpper = internalName
 	set $piece(internalNameUpper, ".", *) = $zconvert($piece(internalNameUpper, ".", *), "U")
@@ -508,7 +520,8 @@ Traverses the file tree starting at source control directory</Description>
 		if $$$ISERR(st) {
 			do $system.Status.DisplayError(st)
 		}
-	 }
+	}
+	return $$$OK
 ]]></Implementation>
 </Method>
 
