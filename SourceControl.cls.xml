@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-07-27 11:03:02">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-08-22 11:29:44">
 <Class name="Util.SourceControl">
 <Super>%Studio.SourceControl.File</Super>
-<TimeChanged>64126,39006.084955</TimeChanged>
+<TimeChanged>64152,41239.659554</TimeChanged>
 <TimeCreated>64113,38662.910035</TimeCreated>
 
 <Parameter name="ExpMode">
@@ -432,8 +432,20 @@ Is executed on another process</Description>
 	for {
 		do $system.Event.Wait(..#ResourceName, ..#RefreshTime)
 		set dir = ^Sources
-		do ##class(Util.SourceControl).TraverseFileTree(dir)
+		do ##class(Util.SourceControl).TraverseFileTree(dir, "CreateProcess")
 	}
+]]></Implementation>
+</Method>
+
+<Method name="SearchForUpdate">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>reponame:%String</FormalSpec>
+<Implementation><![CDATA[
+	if $g(reponame)="" s reponame=$znspace
+	zn reponame
+	set dir = ^Sources
+	do ##class(Util.SourceControl).TraverseFileTree(dir, "UpdateProcess")
+	w !, "Finished updating"
 ]]></Implementation>
 </Method>
 
@@ -454,7 +466,7 @@ Gets the name of a file at fileLocation</Description>
 <Description>
 Traverses the file tree starting at source control directory</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>dir:%String</FormalSpec>
+<FormalSpec>dir:%String,function:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 	set trs = ##class(%ResultSet).%New("%Library.File:FileSet")
@@ -463,23 +475,56 @@ Traverses the file tree starting at source control directory</Description>
 		set name = trs.Get("Name")
  		set type = trs.Get("Type")
  		if type = "D" {
- 			do ..TraverseFileTree(name)
+ 			do ..TraverseFileTree(name, function)
  		}
  		else {
-	 		set internalName = ..GetInternalName(name)
-	 		set internalNameUpper = internalName
-	 		set $piece(internalNameUpper, ".", *) = $zconvert($piece(internalNameUpper, ".", *), "U")
- 			if ('$data(^Sources(0, "FileTimeStamp", internalName))) 
- 				&& ('$data(^Sources(0, "FileTimeStamp", internalNameUpper))) {
-	 			write !, name
-				set st = ..CreateFile(internalName, name)
-				if $$$ISERR(st) {
-					do $system.Status.DisplayError(st)
-				}
-	 		}
+	 		do $classmethod("Util.SourceControl", function, name)
  		}
  	}
  	return $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="CreateProcess">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>name:%String</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	set internalName = ..GetInternalName(name)
+	set internalNameUpper = internalName
+	set $piece(internalNameUpper, ".", *) = $zconvert($piece(internalNameUpper, ".", *), "U")
+ 	if ('$data(^Sources(0, "FileTimeStamp", internalName))) 
+ 		&& ('$data(^Sources(0, "FileTimeStamp", internalNameUpper))) {
+	 	write !, name
+		set st = ..CreateFile(internalName, name)
+		if $$$ISERR(st) {
+			do $system.Status.DisplayError(st)
+		}
+	}
+]]></Implementation>
+</Method>
+
+<Method name="UpdateProcess">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>name:%String</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	set st = ""
+	set internalName = ..GetInternalName(name)
+	set internalNameUpper = internalName
+	set $piece(internalNameUpper, ".", *) = $zconvert($piece(internalNameUpper, ".", *), "U")
+ 	if ('$data(^Sources(0, "FileTimeStamp", internalName))) 
+ 		&& ('$data(^Sources(0, "FileTimeStamp", internalNameUpper))) {
+	 	write !, name
+		set st = ..CreateFile(internalName, name)
+		if $$$ISERR(st) {
+			do $system.Status.DisplayError(st)
+		}
+	}
+	else {
+		set sourceControl = ..%New("")
+		set st = sourceControl.OnBeforeLoad(internalName)
+	}
 ]]></Implementation>
 </Method>
 
@@ -500,6 +545,10 @@ Creates new file with the name of internalName which is stored at fileLocation</
 	else {
 		set st = ..CreateOther(internalName, fileLocation)
 	}
+	
+	if st {
+ 		w "Created " _ internalName _ " to file " _ fileLocation
+ 	}
 	return $$$OK
 ]]></Implementation>
 </Method>
@@ -565,6 +614,7 @@ Creates .mac, .int, .dfi file with the name of intrernalName which is stored at 
  	return:$$$ISERR(status) status
  	
  	set status = rtn.Compile()
+ 	
  	return status
 ]]></Implementation>
 </Method>

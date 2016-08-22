@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-08-22 11:29:20">
+<CSP name="update.csp" application="/csp/sc/" default="1"><![CDATA[
+<html>
+<head>
+
+	<title>	Cache Source Control </title>
+
+</head>
+
+<body>
+
+<pre>
+	<script language="Cache" runat="server">
+	 	do ##class(Util.SourceControl).SearchForUpdate("sc")
+	</script>
+</pre>	
+</script>
+</body>
+</html>
+]]></CSP>
+</Export>
