@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-08-22 11:29:44">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-08-23 17:30:21">
 <Class name="Util.SourceControl">
 <Super>%Studio.SourceControl.File</Super>
-<TimeChanged>64152,41239.659554</TimeChanged>
+<TimeChanged>64153,62711.940584</TimeChanged>
 <TimeCreated>64113,38662.910035</TimeCreated>
 
 <Parameter name="ExpMode">
@@ -457,6 +457,7 @@ Gets the name of a file at fileLocation</Description>
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[
 	set defLocation = $translate(^Sources, "/", "\")
+	set fileLocation = $translate(fileLocation, "/", "\")
 	set internalName = $translate($extract(fileLocation, $find(fileLocation, defLocation) + 4, *), "\", ".")
 	return internalName
 ]]></Implementation>
@@ -495,7 +496,7 @@ Traverses the file tree starting at source control directory</Description>
 	set $piece(internalNameUpper, ".", *) = $zconvert($piece(internalNameUpper, ".", *), "U")
  	if ('$data(^Sources(0, "FileTimeStamp", internalName))) 
  		&& ('$data(^Sources(0, "FileTimeStamp", internalNameUpper))) {
-	 	write !, name
+	 	write !, "Found " _ name
 		set st = ..CreateFile(internalName, name)
 		if $$$ISERR(st) {
 			do $system.Status.DisplayError(st)
@@ -515,7 +516,7 @@ Traverses the file tree starting at source control directory</Description>
 	set $piece(internalNameUpper, ".", *) = $zconvert($piece(internalNameUpper, ".", *), "U")
  	if ('$data(^Sources(0, "FileTimeStamp", internalName))) 
  		&& ('$data(^Sources(0, "FileTimeStamp", internalNameUpper))) {
-	 	write !, name
+	 	write !, "Found " _ name
 		set st = ..CreateFile(internalName, name)
 		if $$$ISERR(st) {
 			do $system.Status.DisplayError(st)
@@ -542,12 +543,21 @@ Creates new file with the name of internalName which is stored at fileLocation</
 	elseif $find(fileLocation, "\dfi\") {
 		set st = ..CreateDFI(internalName, fileLocation)
 	} 
-	else {
+	elseif $find(fileLocation, "\mac\") 
+			|| $find(fileLocation, "\int\") 
+			|| $find(fileLocation, "\inc\") {
 		set st = ..CreateOther(internalName, fileLocation)
 	}
+	else {
+		return $$$OK
+	}
+	
+	
 	
 	if st {
  		w "Created " _ internalName _ " to file " _ fileLocation
+ 		set ^Sources(0,"FileTimeStamp",internalName) = $zu(140,2,fileLocation,1)
+		set ^Sources(0,"ItemTimeStamp",internalName) = ##class(%RoutineMgr).TS(fileLocation)
  	}
 	return $$$OK
 ]]></Implementation>
