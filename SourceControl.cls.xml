@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-07-27 11:03:02">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.2 (Build 721U)" ts="2016-08-31 11:19:39">
 <Class name="Util.SourceControl">
 <Super>%Studio.SourceControl.File</Super>
-<TimeChanged>64126,39006.084955</TimeChanged>
+<TimeChanged>64161,40713.484831</TimeChanged>
 <TimeCreated>64113,38662.910035</TimeCreated>
 
 <Parameter name="ExpMode">
@@ -77,7 +77,7 @@ reponame - name of the repository.</Description>
 			continue
 		}
 		
-		set sc = sourceControl.OnAfterSave(className _ ".CLS")
+		set sc = sourceControl.OnAfterSave(className _ ".cls")
 		if $$$ISERR(sc) {
 			do $system.OBJ.DisplayError(sc)
 		}
@@ -136,19 +136,20 @@ reponame - name of the repository.</Description>
 	
 	#; CSP files are already files so not additional work needed
 	if name["/" quit $$$OK
-	set ext=$ZConvert($Piece(InternalName,".",$Length(InternalName,".")),"U")
+	set ext=$Piece(InternalName,".",$Length(InternalName,"."))
 	
 	#; do not export the default projects
-	if ext="PRJ",$zconvert($extract(name,1,$length("default_")),"l")="default_" {
+	if ext="prj",$zconvert($extract(name,1,$length("default_")),"l")="default_" {
 		return $$$OK
 	}
 	
 	#; By convention items starting with Z,z,%z,%Z are not exported
-	if (ext="PRJ")||($extract($translate(name,"Z%","z"))="z") {
+	if (ext="prj")||($extract($translate(name,"Z%","z"))="z") {
 		return $$$OK
 	}
 	
 	#; if time already matches nothing to do
+	// TODO
 	if ##class(%RoutineMgr).TS(InternalName)=$get(^Sources(0,"ItemTimeStamp",InternalName)) {
 		return $$$OK
 	}
@@ -266,6 +267,14 @@ This file should contain code in UDL format</Description>
 ]]></Implementation>
 </Method>
 
+<Method name="GetExt">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>fileName:%String</FormalSpec>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[	return $zconvert($piece(fileName, ".", *), "l")
+]]></Implementation>
+</Method>
+
 <Method name="ExportUDL">
 <Description>
 exports fileName to fileLocation file using UDL format</Description>
@@ -278,14 +287,17 @@ exports fileName to fileLocation file using UDL format</Description>
 	}
 		
 	
-	set ext = $zconvert($piece(fileName, ".", *), "l")
+	set ext = ..GetExt(fileName)
 	
 	if ext = "cls" {
 		return ..ExportUDLClass(fileLocation, fileName)
 	} 
-	elseif (ext = "mac") || (ext = "int") || (ext = "dfi") || (ext = "inc") {
-		return ..ExportUDLOther(fileLocation, fileName)
+	elseif (ext = "mac") || (ext = "inc") || (ext = "int") {
+		return ..ExportUDLOther(fileLocation, fileName, ext)
 	} 
+	elseif (ext = "dfi") {
+		return ..ExportUDLDFI(fileLocation, fileName)
+	}
 	return $$$OK
 ]]></Implementation>
 </Method>
@@ -298,7 +310,7 @@ Exports a class to fileLocation with the name of fileName </Description>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 	set namespace = $namespace
-	set clsformat = ".CLS"
+	set clsformat = ".cls"
 	set status = ""
 	
 	// transform classname.CLS -> classname
@@ -322,7 +334,39 @@ Exports a class to fileLocation with the name of fileName </Description>
 
 <Method name="ExportUDLOther">
 <Description>
-Exports .mac, .int, .dfi files to fileLocation with the name of fileName</Description>
+Exports .mac, .inc files to fileLocation with the name of fileName</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>fileLocation:%String,fileName:%String,ext:%String</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	set rtn = ##class(%RoutineMgr).%OpenId(fileName)
+ 	
+ 	// write content to file
+	set fileStream = ##class(%FileCharacterStream).%New()
+	set fileStream.Filename = fileLocation
+	
+	// transform routine.mac -> routine
+	set routineName = $extract(fileName, 0, $find(fileName, ".") - 2)
+	
+	if ext = "mac" {
+		do fileStream.WriteLine("ROUTINE " _ routineName)
+	} elseif ext = "inc" {
+		do fileStream.WriteLine("ROUTINE " _ routineName _ " [Type=INC]")
+	} elseif ext = "int" {
+		do fileStream.WriteLine("ROUTINE " _ routineName _ " [Type=INT,Generated]")
+	}
+	
+	while 'rtn.Code.AtEnd {
+		do fileStream.WriteLine(rtn.Code.ReadLine())
+	}
+	
+	do fileStream.%Save()
+		
+	return $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="ExportUDLDFI">
 <ClassMethod>1</ClassMethod>
 <FormalSpec>fileLocation:%String,fileName:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
@@ -337,14 +381,6 @@ Exports .mac, .int, .dfi files to fileLocation with the name of fileName</Descri
 	return:$$$ISERR(status) status
 	
 	return status
-]]></Implementation>
-</Method>
-
-<Method name="ExternalName">
-<CodeMode>expression</CodeMode>
-<FormalSpec>InternalName:%String</FormalSpec>
-<ReturnType>%String</ReturnType>
-<Implementation><![CDATA[..ExtName(InternalName)
 ]]></Implementation>
 </Method>
 
@@ -403,7 +439,12 @@ Return the name of this item without the prefix to be added by ExtName</Descript
 		return $translate(found_$translate(InternalName,"%","_"),"\","/")
 	}
 	if ext="CLS"||(ext="PRJ")||(##class(%RoutineMgr).UserType(InternalName)) {
-		set fileLocation = found _ $translate(nam, ".%", "/")
+		if ext = "DFI" {
+			set fileLocation = found _ nam
+		}
+		else {
+			set fileLocation = found _ $translate(nam, ".%", "/")
+		}
 		if ..#ExpMode = 0 {
 			set fileLocation = fileLocation _ ".xml"
 		}
