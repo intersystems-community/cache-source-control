@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.2 (Build 721U)" ts="2016-09-09 10:54:59">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.2 (Build 721U)" ts="2016-09-09 11:02:29">
 <Class name="Util.SourceControl">
 <Super>%Studio.SourceControl.File</Super>
-<TimeChanged>64170,39227.621006</TimeChanged>
+<TimeChanged>64170,39739.014714</TimeChanged>
 <TimeCreated>64113,38662.910035</TimeCreated>
 
 <Parameter name="ExpMode">
@@ -583,7 +583,7 @@ Creates a class with the name of internalName which is stored at fileLocation</D
 	return:$$$ISERR(st) st
 	
 	set st = ..ImportUDL(internalName, fileLocation)
-	set list(clsDef.Name _ ".cls") = ""
+	set list(internalName) = ""
 	return st
 ]]></Implementation>
 </Method>
@@ -600,7 +600,7 @@ Creates a class with the name of internalName which is stored at fileLocation</D
         return:$$$ISERR(st) st
         
         set tDoc = ##class(%DeepSee.UI.FolderItemDocument).%New(internalName)
-        set st = tDoc.ImportStream(stream)
+        set st = tDoc.ImportFromXML(stream)
         return:$$$ISERR(st) st
         
         set st = tDoc.Save()
