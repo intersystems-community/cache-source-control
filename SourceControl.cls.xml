@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.1 (Build 656U)" ts="2016-08-23 17:30:21">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.2 (Build 721U)" ts="2016-09-09 10:54:59">
 <Class name="Util.SourceControl">
 <Super>%Studio.SourceControl.File</Super>
-<TimeChanged>64153,62711.940584</TimeChanged>
+<TimeChanged>64170,39227.621006</TimeChanged>
 <TimeCreated>64113,38662.910035</TimeCreated>
 
 <Parameter name="ExpMode">
@@ -403,7 +403,12 @@ Return the name of this item without the prefix to be added by ExtName</Descript
 		return $translate(found_$translate(InternalName,"%","_"),"\","/")
 	}
 	if ext="CLS"||(ext="PRJ")||(##class(%RoutineMgr).UserType(InternalName)) {
-		set fileLocation = found _ $translate(nam, ".%", "/")
+		if ext = "DFI" {
+			set fileLocation = found _ nam
+		}
+		else {
+			set fileLocation = found _ $translate(nam, ".%", "/")
+		}
 		if ..#ExpMode = 0 {
 			set fileLocation = fileLocation _ ".xml"
 		}
@@ -470,6 +475,7 @@ Traverses the file tree starting at source control directory</Description>
 <FormalSpec>dir:%String,function:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
+	set list = ""
 	set trs = ##class(%ResultSet).%New("%Library.File:FileSet")
  	set tsc = trs.Execute(dir, "*")
 	while trs.Next() {
@@ -479,16 +485,17 @@ Traverses the file tree starting at source control directory</Description>
  			do ..TraverseFileTree(name, function)
  		}
  		else {
-	 		do $classmethod("Util.SourceControl", function, name)
+	 		do $classmethod("Util.SourceControl", function, name, .list)
  		}
  	}
+ 	do $system.OBJ.CompileList(.list, "cuk /checkuptodate=expandedonly")
  	return $$$OK
 ]]></Implementation>
 </Method>
 
 <Method name="CreateProcess">
 <ClassMethod>1</ClassMethod>
-<FormalSpec>name:%String</FormalSpec>
+<FormalSpec><![CDATA[name:%String,&list]]></FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 	set internalName = ..GetInternalName(name)
@@ -497,7 +504,7 @@ Traverses the file tree starting at source control directory</Description>
  	if ('$data(^Sources(0, "FileTimeStamp", internalName))) 
  		&& ('$data(^Sources(0, "FileTimeStamp", internalNameUpper))) {
 	 	write !, "Found " _ name
-		set st = ..CreateFile(internalName, name)
+		set st = ..CreateFile(internalName, name, .list)
 		if $$$ISERR(st) {
 			do $system.Status.DisplayError(st)
 		}
@@ -507,7 +514,7 @@ Traverses the file tree starting at source control directory</Description>
 
 <Method name="UpdateProcess">
 <ClassMethod>1</ClassMethod>
-<FormalSpec>name:%String</FormalSpec>
+<FormalSpec><![CDATA[name:%String,&list]]></FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 	set st = ""
@@ -517,7 +524,7 @@ Traverses the file tree starting at source control directory</Description>
  	if ('$data(^Sources(0, "FileTimeStamp", internalName))) 
  		&& ('$data(^Sources(0, "FileTimeStamp", internalNameUpper))) {
 	 	write !, "Found " _ name
-		set st = ..CreateFile(internalName, name)
+		set st = ..CreateFile(internalName, name, .list)
 		if $$$ISERR(st) {
 			do $system.Status.DisplayError(st)
 		}
@@ -533,20 +540,20 @@ Traverses the file tree starting at source control directory</Description>
 <Description>
 Creates new file with the name of internalName which is stored at fileLocation</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>internalName:%String,fileLocation:%String</FormalSpec>
+<FormalSpec><![CDATA[internalName:%String,fileLocation:%String,&list]]></FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 	set st = ""
 	if $find(fileLocation, "\cls\") {
-		set st = ..CreateClass(internalName, fileLocation)
+		set st = ..CreateClass(internalName, fileLocation, .list)
 	}
 	elseif $find(fileLocation, "\dfi\") {
-		set st = ..CreateDFI(internalName, fileLocation)
+		set st = ..CreateDFI(internalName, fileLocation, .list)
 	} 
 	elseif $find(fileLocation, "\mac\") 
 			|| $find(fileLocation, "\int\") 
 			|| $find(fileLocation, "\inc\") {
-		set st = ..CreateOther(internalName, fileLocation)
+		set st = ..CreateOther(internalName, fileLocation, .list)
 	}
 	else {
 		return $$$OK
@@ -567,7 +574,7 @@ Creates new file with the name of internalName which is stored at fileLocation</
 <Description>
 Creates a class with the name of internalName which is stored at fileLocation</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>internalName:%String,fileLocation:%String</FormalSpec>
+<FormalSpec><![CDATA[internalName:%String,fileLocation:%String,&list]]></FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 	set clsDef = ##class(%Dictionary.ClassDefinition).%New()
@@ -576,13 +583,14 @@ Creates a class with the name of internalName which is stored at fileLocation</D
 	return:$$$ISERR(st) st
 	
 	set st = ..ImportUDL(internalName, fileLocation)
+	set list(clsDef.Name _ ".cls") = ""
 	return st
 ]]></Implementation>
 </Method>
 
 <Method name="CreateDFI">
 <ClassMethod>1</ClassMethod>
-<FormalSpec>internalName:%String,fileLocation:%String</FormalSpec>
+<FormalSpec><![CDATA[internalName:%String,fileLocation:%String,&list]]></FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 	set st = $$$OK
@@ -592,11 +600,12 @@ Creates a class with the name of internalName which is stored at fileLocation</D
         return:$$$ISERR(st) st
         
         set tDoc = ##class(%DeepSee.UI.FolderItemDocument).%New(internalName)
-        set st = tDoc.ImportFromXML(stream)
+        set st = tDoc.ImportStream(stream)
         return:$$$ISERR(st) st
         
         set st = tDoc.Save()
         return:$$$ISERR(st) st
+        set list(internalName) = ""
     } Catch e {
         set st = e.AsStatus()
     }
@@ -623,7 +632,7 @@ Creates .mac, .int, .dfi file with the name of intrernalName which is stored at 
 	set status = rtn.Save()
  	return:$$$ISERR(status) status
  	
- 	set status = rtn.Compile()
+ 	set list(internalName) = ""
  	
  	return status
 ]]></Implementation>
