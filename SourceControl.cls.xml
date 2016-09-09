@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.2 (Build 721U)" ts="2016-08-31 11:19:39">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.2 (Build 721U)" ts="2016-09-09 11:00:59">
 <Class name="Util.SourceControl">
 <Super>%Studio.SourceControl.File</Super>
-<TimeChanged>64161,40713.484831</TimeChanged>
+<TimeChanged>64170,39630.361667</TimeChanged>
 <TimeCreated>64113,38662.910035</TimeCreated>
 
 <Parameter name="ExpMode">
@@ -498,6 +498,7 @@ Traverses the file tree starting at source control directory</Description>
 <FormalSpec>dir:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
+	set list = ""
 	set trs = ##class(%ResultSet).%New("%Library.File:FileSet")
  	set tsc = trs.Execute(dir, "*")
 	while trs.Next() {
@@ -513,13 +514,14 @@ Traverses the file tree starting at source control directory</Description>
  			if ('$data(^Sources(0, "FileTimeStamp", internalName))) 
  				&& ('$data(^Sources(0, "FileTimeStamp", internalNameUpper))) {
 	 			write !, name
-				set st = ..CreateFile(internalName, name)
+				set st = ..CreateFile(internalName, name, .list)
 				if $$$ISERR(st) {
 					do $system.Status.DisplayError(st)
 				}
 	 		}
  		}
  	}
+ 	do $system.OBJ.CompileList(.list, "cuk /checkuptodate=expandedonly")
  	return $$$OK
 ]]></Implementation>
 </Method>
@@ -528,18 +530,18 @@ Traverses the file tree starting at source control directory</Description>
 <Description>
 Creates new file with the name of internalName which is stored at fileLocation</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>internalName:%String,fileLocation:%String</FormalSpec>
+<FormalSpec><![CDATA[internalName:%String,fileLocation:%String,&list]]></FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 	set st = ""
 	if $find(fileLocation, "\cls\") {
-		set st = ..CreateClass(internalName, fileLocation)
+		set st = ..CreateClass(internalName, fileLocation, .list)
 	}
 	elseif $find(fileLocation, "\dfi\") {
-		set st = ..CreateDFI(internalName, fileLocation)
+		set st = ..CreateDFI(internalName, fileLocation, .list)
 	} 
 	else {
-		set st = ..CreateOther(internalName, fileLocation)
+		set st = ..CreateOther(internalName, fileLocation, .list)
 	}
 	return $$$OK
 ]]></Implementation>
@@ -549,7 +551,7 @@ Creates new file with the name of internalName which is stored at fileLocation</
 <Description>
 Creates a class with the name of internalName which is stored at fileLocation</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>internalName:%String,fileLocation:%String</FormalSpec>
+<FormalSpec><![CDATA[internalName:%String,fileLocation:%String,&list]]></FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 	set clsDef = ##class(%Dictionary.ClassDefinition).%New()
@@ -558,13 +560,14 @@ Creates a class with the name of internalName which is stored at fileLocation</D
 	return:$$$ISERR(st) st
 	
 	set st = ..ImportUDL(internalName, fileLocation)
+	set list(internalName) = ""
 	return st
 ]]></Implementation>
 </Method>
 
 <Method name="CreateDFI">
 <ClassMethod>1</ClassMethod>
-<FormalSpec>internalName:%String,fileLocation:%String</FormalSpec>
+<FormalSpec><![CDATA[internalName:%String,fileLocation:%String,&list]]></FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 	set st = $$$OK
@@ -590,7 +593,7 @@ Creates a class with the name of internalName which is stored at fileLocation</D
 <Description>
 Creates .mac, .int, .dfi file with the name of intrernalName which is stored at fileLocation</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>internalName:%String,fileLocation:%String</FormalSpec>
+<FormalSpec><![CDATA[internalName:%String,fileLocation:%String,&list]]></FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 	set fileLocation = $translate(fileLocation, "\", "/")
@@ -605,7 +608,7 @@ Creates .mac, .int, .dfi file with the name of intrernalName which is stored at 
 	set status = rtn.Save()
  	return:$$$ISERR(status) status
  	
- 	set status = rtn.Compile()
+ 	set list(internalName) = ""
  	return status
 ]]></Implementation>
 </Method>
