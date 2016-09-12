@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.2 (Build 721U)" ts="2016-09-09 11:00:59">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.2 (Build 721U)" ts="2016-09-12 12:07:17">
 <Class name="Util.SourceControl">
 <Super>%Studio.SourceControl.File</Super>
-<TimeChanged>64170,39630.361667</TimeChanged>
+<TimeChanged>64173,43538.030903</TimeChanged>
 <TimeCreated>64113,38662.910035</TimeCreated>
 
 <Parameter name="ExpMode">
@@ -313,8 +313,8 @@ Exports a class to fileLocation with the name of fileName </Description>
 	set clsformat = ".cls"
 	set status = ""
 	
-	// transform classname.CLS -> classname
-	set className = $extract(fileName, 1, $find(fileName, clsformat) - ($length(clsformat) + 1))
+	set $piece(fileName, ".", *) = ""
+	set className = $extract(fileName, 0, * - 1) 
 	
 	// get class content
 	set status = ##class(%Compiler.UDL.TextServices).GetTextAsString(namespace, className, .classContent)
