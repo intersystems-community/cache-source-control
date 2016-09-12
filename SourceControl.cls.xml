@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.2 (Build 721U)" ts="2016-09-12 12:07:17">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2016.2 (Build 721U)" ts="2016-09-12 12:27:35">
 <Class name="Util.SourceControl">
 <Super>%Studio.SourceControl.File</Super>
-<TimeChanged>64173,43538.030903</TimeChanged>
+<TimeChanged>64173,44849.482813</TimeChanged>
 <TimeCreated>64113,38662.910035</TimeCreated>
 
 <Parameter name="ExpMode">
@@ -118,6 +118,12 @@ reponame - name of the repository.</Description>
 	 	}
 	}
 
+
+	// start a job - execute each RefreshTime seconds
+	if '$system.Event.Defined(..#ResourceName) {
+		job ..SearchForNewFiles()
+	}
+	
  	
  	return $$$OK
 ]]></Implementation>
